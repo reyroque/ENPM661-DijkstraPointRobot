@@ -163,28 +163,41 @@ def draw_obstacles(canvas, obstacles):
     return
 
 def draw_explored(canvas, points, start_node, goal_node):
+    count = 0
     for point in points.keys():
         # Draw the dot for the current point
         cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(0, 255, 0), thickness=-1)
+        count += 1
+        if count % 100 == 0:
+            count = 0
+            cv2.imshow('Dijkstra', canvas)
+            cv2.waitKey(1)  # Delay between each dot drawing, adjust as needed  
+    #cv2.destroyAllWindows()     
+    return
 
-        # Display the updated image
-        cv2.imshow('Dots', canvas)
-        cv2.waitKey(1)  # Delay between each dot drawing, adjust as needed   
-    cv2.imshow('Dots', canvas)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()     
-
-def draw_path(canvas, points):
-    for point in points:
+def draw_path(canvas, path):
+    for point in path:
         # Draw the dot for the current point
-        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(0, 255, 0), thickness=-1)
+        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(255, 255, 0), thickness=-1)
 
         # Display the updated image
-        cv2.imshow('Dots', canvas)
+        cv2.imshow('Dijkstra', canvas)
         cv2.waitKey(1)  # Delay between each dot drawing, adjust as needed   
-    cv2.imshow('Dots', canvas)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()  
+    #cv2.destroyAllWindows()  
+    return
+
+def draw_animation(obstacles, explored, path, start_node, goal_node):
+    # Initialize canvas
+    canvas = np.ones((500, 1200, 3), dtype=np.uint8) * 255  # White canvas
+    cv2.rectangle(canvas, (start_node[0] - 2, 500 - start_node[1] - 2), (start_node[0] + 3, 500 - start_node[1] + 3), color=(0, 0, 255), thickness=cv2.FILLED)
+    cv2.rectangle(canvas, (goal_node[0] - 2, 500 - goal_node[1] - 2), (goal_node[0] + 3, 500 - goal_node[1] + 3), color=(255, 0, 0), thickness=cv2.FILLED)
+
+    # Draw obstacles on canvas
+    draw_obstacles(canvas, obstacles)
+    cv2.waitKey(3000)
+    draw_explored(canvas, explored, start_node, goal_node)
+    draw_path(canvas,path)
+    cv2.waitKey(3000)
     return
 
 def obstacle_space():
@@ -225,7 +238,7 @@ def dijkstra_algorithm(start_node, goal_node, obstacles):
         parent_dict[node] = parent
 
         if node == goal_node:
-            print("Success")
+            print("Path Found")
             return parent_dict
 
         # Get neighboring nodes
@@ -274,32 +287,29 @@ def find_path(visited_dict, start, goal):
         path.insert(0, current_node)
     return path
 
-goal_node = (1150,25)
+goal_node = (75,75)
 start_node = (15, 15)
+
+#xs = int(input('Enter x coordinate value for start location: '))
+#ys = int(input('Enter y coordinate value for start location: '))
+#xg = int(input('Enter x coordinate value for goal location: '))
+#yg = int(input('Enter y coordinate value for goal location: '))
+
+#start_node = tuple((xs, ys))
+#goal_node = tuple((xg,yg))
 
 # Get obstacles
 obstacles = obstacle_space()
 
-# Initialize canvas
-canvas = np.ones((500, 1200, 3), dtype=np.uint8) * 255  # White canvas
-cv2.rectangle(canvas, (start_node[0] - 2, 500 - start_node[1] - 2), (start_node[0] + 3, 500 - start_node[1] + 3), color=(255, 0, 0), thickness=cv2.FILLED)
-cv2.rectangle(canvas, (goal_node[0] - 2, 500 - goal_node[1] - 2), (goal_node[0] + 3, 500 - goal_node[1] + 3), color=(0, 0, 255), thickness=cv2.FILLED)
-
-# Draw obstacles on canvas
-draw_obstacles(canvas, obstacles)
-
-# Display canvas
-#plt.imshow(canvas)
-#plt.show()
-
 ti = time.time()
 
+print('Exploring nodes')
 explored_dict = dijkstra_algorithm(start_node, goal_node, obstacles)
 
+print('Generating path')
 path = find_path(explored_dict, start_node, goal_node)
 
 tf = time.time()
-print(tf-ti)
+print('Path found in: ', tf-ti)
 
-#draw_explored(canvas, explored_dict, start_node, goal_node)
-draw_path(canvas,path)
+draw_animation(obstacles, explored_dict, path, start_node, goal_node)
