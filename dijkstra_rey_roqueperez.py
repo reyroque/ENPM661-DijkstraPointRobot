@@ -2,14 +2,13 @@
 # Written by: Rey Roque-Pérez
 # UID: 120498626
 
-import heapq as hq
 from queue import PriorityQueue
 import time
 
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
 
+###### Move functions ######
 def move_right(node):
     new_node = (node[0]+1, node[1])
     return new_node
@@ -50,6 +49,9 @@ def get_diagonal_moves(node):
     actions = (move_up_right(node),move_up_left(node),move_down_right(node),move_down_left(node))
     return actions
 
+###### End Move functions ######
+
+# Checks if a given point is inside a rectangle
 def in_rectangle(node, obstruction, padding):
     return_bool = False
     x1 = obstruction[0][0] - padding
@@ -81,6 +83,7 @@ def half_plane(coordinate_1, coordinate_2,object_coordinate):
     equation = slope*(x-x1)-y+y1
     return equation
 
+# Checks if a given point is inside a hexagon
 def in_hexagon(object_coordinate, padding):
     hexagon = get_hexagon_coordinates((650,250),150,90,padding)
     H1 = False
@@ -108,6 +111,7 @@ def in_hexagon(object_coordinate, padding):
 
     return (H1 & H2 & H3 & H4 & H5 & H6)    
 
+# Checks if the point is outside the map
 def outside_workspace(object_coordinate, obstacle, padding):
     return_bool = False
     x1 = obstacle[0][0] + padding
@@ -120,6 +124,7 @@ def outside_workspace(object_coordinate, obstacle, padding):
         return_bool = True    
     return return_bool
 
+# Checks if node is ouside the map or inside an obstacle
 def in_obstacle(object_coordinate, obstacles, padding):
     return_bool = False
     for obstacle in obstacles:
@@ -134,6 +139,7 @@ def in_obstacle(object_coordinate, obstacles, padding):
                 return_bool = True
     return return_bool
 
+# Determines the edges of a hexagon of r radius at a given point and angle
 def get_hexagon_coordinates(center_coordinate, radius, angle, padding):
     # Define angles for each point of the hexagon
     angles = np.deg2rad(np.arange(0, 360, 60) + angle)
@@ -146,6 +152,12 @@ def get_hexagon_coordinates(center_coordinate, radius, angle, padding):
     coordinates = [(int(x), int(y)) for x, y in zip(x_coordinates, y_coordinates)]
     return coordinates
 
+# Draws start node and end node
+def draw_nodes(canvas, start_node, goal_node):
+    cv2.rectangle(canvas, (start_node[0] - 2, 500 - start_node[1] - 2), (start_node[0] + 3, 500 - start_node[1] + 3), color=(0, 250, 0), thickness=cv2.FILLED)
+    cv2.rectangle(canvas, (goal_node[0] - 2, 500 - goal_node[1] - 2), (goal_node[0] + 3, 500 - goal_node[1] + 3), color=(0, 0, 255), thickness=cv2.FILLED)
+
+# Populates the canvas with the obstacles
 def draw_obstacles(canvas, obstacles):
     for obstacle in obstacles:       
         if len(obstacle) == 2 and obstacle != ((0,0),(1200,500)):
@@ -160,46 +172,47 @@ def draw_obstacles(canvas, obstacles):
             polygon = np.array(obstacle)
             polygon = polygon.reshape(-1, 1, 2)
             cv2.fillPoly(canvas, [polygon], color=(0, 0, 0))
+    cv2.imshow('Dijkstra', canvas)
+    cv2.waitKey(2000)
     return
 
+# Populates and updates the canvas with explored nodes
 def draw_explored(canvas, points, start_node, goal_node):
     count = 0
     for point in points.keys():
-        # Draw the dot for the current point
-        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(0, 255, 0), thickness=-1)
+        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(200, 0, 0), thickness=-1)
         count += 1
-        if count % 100 == 0:
+        if count % 700 == 0:
             count = 0
             cv2.imshow('Dijkstra', canvas)
-            cv2.waitKey(1)  # Delay between each dot drawing, adjust as needed  
-    #cv2.destroyAllWindows()     
+            cv2.waitKey(int(1000 / 60))    
     return
 
+# Populates and updates the canvas with path nodes
 def draw_path(canvas, path):
+    count = 0
     for point in path:
-        # Draw the dot for the current point
-        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(255, 255, 0), thickness=-1)
-
-        # Display the updated image
-        cv2.imshow('Dijkstra', canvas)
-        cv2.waitKey(1)  # Delay between each dot drawing, adjust as needed   
-    #cv2.destroyAllWindows()  
+        cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(0, 0, 250), thickness=2)
+        count += 1
+        if count % 5 == 0:
+            count = 0
+            cv2.imshow('Dijkstra', canvas)
+            cv2.waitKey(int(1000 / 60))  
     return
 
+# Calls the functions for populating the canvas
 def draw_animation(obstacles, explored, path, start_node, goal_node):
-    # Initialize canvas
     canvas = np.ones((500, 1200, 3), dtype=np.uint8) * 255  # White canvas
-    cv2.rectangle(canvas, (start_node[0] - 2, 500 - start_node[1] - 2), (start_node[0] + 3, 500 - start_node[1] + 3), color=(0, 0, 255), thickness=cv2.FILLED)
-    cv2.rectangle(canvas, (goal_node[0] - 2, 500 - goal_node[1] - 2), (goal_node[0] + 3, 500 - goal_node[1] + 3), color=(255, 0, 0), thickness=cv2.FILLED)
-
-    # Draw obstacles on canvas
+    
+    draw_nodes(canvas, start_node, goal_node)
     draw_obstacles(canvas, obstacles)
-    cv2.waitKey(3000)
     draw_explored(canvas, explored, start_node, goal_node)
+    draw_nodes(canvas, start_node, goal_node)
     draw_path(canvas,path)
     cv2.waitKey(3000)
     return
 
+# Creates a list of the obstacles in the workspace
 def obstacle_space():
     obstacle_list = []
 
@@ -220,15 +233,16 @@ def dijkstra_algorithm(start_node, goal_node, obstacles):
     node_grid = [[float('inf')] * 500 for _ in range(1200)]
     node_grid[start_node[0]][start_node[1]] = 0
 
-    # Cost to come, coordinate values (x,y), parent
     # Priority queue to store open nodes
+    # Cost to come, coordinate values (x,y), parent
     open_queue = PriorityQueue()
     open_queue.put((0, start_node))  # (priority, node)
 
-    # Dictionary to store the parent nodes
+    # Visited/Parent dictionary
+    # Key: nodes (x,y) , Values: parent
     parent_dict = {}
 
-    # Key: nodes (x,y) , Values: parent 
+    # Key: nodes (x,y) , Values: parent
     open_dict = {}
     open_dict  = {start_node: None}
 
@@ -246,39 +260,24 @@ def dijkstra_algorithm(start_node, goal_node, obstacles):
         diagonal_moves = get_diagonal_moves(node)
 
         for move in straight_moves:
-            if not in_obstacle(move, obstacles, 5):
-                # Calculate new cost to come
+            if move not in parent_dict and move not in open_dict and not in_obstacle(move, obstacles, 5):
                 new_cost = node_grid[node[0]][node[1]] + 1
-                if move not in parent_dict:                
-                    # Update if new cost is lower
-                    if new_cost < node_grid[move[0]][move[1]]:
-                        if move not in open_dict:
-                            node_grid[move[0]][move[1]] = new_cost
-                            open_queue.put((new_cost, move))
-                            open_dict[move] = node
-                else:
-                    if new_cost < node_grid[move[0]][move[1]]:
-                        node_grid[move[0]][move[1]] = new_cost
-                        parent_dict[move] = node   
+                if new_cost < node_grid[move[0]][move[1]]:
+                    node_grid[move[0]][move[1]] = new_cost
+                    open_queue.put((new_cost, move))
+                    open_dict[move] = node
 
         for move in diagonal_moves:
-            if not in_obstacle(move, obstacles, 5):
-                # Calculate new cost to come
+            if move not in parent_dict and move not in open_dict and not in_obstacle(move, obstacles, 5):
                 new_cost = node_grid[node[0]][node[1]] + 1.4
-                if move not in parent_dict:                
-                    # Update if new cost is lower
-                    if new_cost < node_grid[move[0]][move[1]]:
-                        if move not in open_dict:
-                            node_grid[move[0]][move[1]] = new_cost
-                            open_queue.put((new_cost, move))
-                            open_dict[move] = node
-                else:
-                    if new_cost < node_grid[move[0]][move[1]]:
-                        node_grid[move[0]][move[1]] = new_cost
-                        parent_dict[move] = node  
+                if new_cost < node_grid[move[0]][move[1]]:
+                    node_grid[move[0]][move[1]] = new_cost
+                    open_queue.put((new_cost, move))
+                    open_dict[move] = node  
 
     return print("Failed to find goal")
 
+# Backtracking using path list created from visited/path dictionary
 def find_path(visited_dict, start, goal):
     current_node = goal
     path = [current_node]
@@ -287,20 +286,29 @@ def find_path(visited_dict, start, goal):
         path.insert(0, current_node)
     return path
 
-goal_node = (75,75)
-start_node = (15, 15)
-
-#xs = int(input('Enter x coordinate value for start location: '))
-#ys = int(input('Enter y coordinate value for start location: '))
-#xg = int(input('Enter x coordinate value for goal location: '))
-#yg = int(input('Enter y coordinate value for goal location: '))
-
-#start_node = tuple((xs, ys))
-#goal_node = tuple((xg,yg))
-
 # Get obstacles
 obstacles = obstacle_space()
+padding = 0
 
+xs = int(input('Enter x coordinate value for start coordinate: '))
+ys = int(input('Enter y coordinate value for start coordinate: '))
+start_node = tuple((xs, ys))
+while in_obstacle(start_node, obstacles, padding):
+    print('Node outside workspace or in obstacle. Choose new start location')
+    xs = int(input('Enter x coordinate value for start location: '))
+    ys = int(input('Enter y coordinate value for start location: '))    
+    start_node = tuple((xs, ys))
+
+xg = int(input('Enter x coordinate value for goal coordinate: '))
+yg = int(input('Enter y coordinate value for goal coordinate: '))
+goal_node = tuple((xg,yg))
+while in_obstacle(goal_node, obstacles, padding):
+    print('Node outside workspace or in obstacle. Choose new goal location')
+    xg = int(input('Enter x coordinate value for goal location: '))
+    yg = int(input('Enter y coordinate value for goal location: '))
+    goal_node = tuple((xg,yg))
+
+# Start timer
 ti = time.time()
 
 print('Exploring nodes')
@@ -309,6 +317,7 @@ explored_dict = dijkstra_algorithm(start_node, goal_node, obstacles)
 print('Generating path')
 path = find_path(explored_dict, start_node, goal_node)
 
+# Get time taken to find path
 tf = time.time()
 print('Path found in: ', tf-ti)
 
