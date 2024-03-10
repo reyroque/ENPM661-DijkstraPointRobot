@@ -1,4 +1,5 @@
 # Project 2: Implementation of the Dijkstra Algorithm for a Point Robot
+# Github Repository: https://github.com/reyroque/ENPM661-DijkstraPointRobot
 # Written by: Rey Roque-Pérez
 # UID: 120498626
 
@@ -76,15 +77,15 @@ def get_slope(coordinate_1, coordinate_2):
     return slope
 
 # Returns f(x,y) for a half plane created by two points
-def half_plane(coordinate_1, coordinate_2,object_coordinate):
+def half_plane(coordinate_1, coordinate_2,node):
     slope = get_slope(coordinate_1, coordinate_2)
     x1, y1 = coordinate_1
-    x, y = object_coordinate
+    x, y = node
     equation = slope*(x-x1)-y+y1
     return equation
 
 # Checks if a given point is inside a hexagon
-def in_hexagon(object_coordinate, padding):
+def in_hexagon(node, padding):
     hexagon = get_hexagon_coordinates((650,250),150,90,padding)
     H1 = False
     H2 = False
@@ -94,48 +95,48 @@ def in_hexagon(object_coordinate, padding):
     H6 = False
 
     # Variables H are booleans for the half-planes
-    if half_plane(hexagon[0],hexagon[1],object_coordinate) >= 0:
+    if half_plane(hexagon[0],hexagon[1],node) >= 0:
         H1 = True
     # H2 half plane is vertical
-    if object_coordinate[0] >= hexagon[1][0]:
+    if node[0] >= hexagon[1][0]:
         H2 = True
-    if half_plane(hexagon[2],hexagon[3],object_coordinate) <= 0:
+    if half_plane(hexagon[2],hexagon[3],node) <= 0:
         H3 = True
-    if half_plane(hexagon[3],hexagon[4],object_coordinate) <= 0:
+    if half_plane(hexagon[3],hexagon[4],node) <= 0:
         H4 = True
     # H5 half plane is vertical    
-    if object_coordinate[0] <= hexagon[5][0]:
+    if node[0] <= hexagon[5][0]:
         H5 = True
-    if half_plane(hexagon[5],hexagon[0],object_coordinate) >= 0:
+    if half_plane(hexagon[5],hexagon[0],node) >= 0:
         H6 = True
 
     return (H1 & H2 & H3 & H4 & H5 & H6)    
 
 # Checks if the point is outside the map
-def outside_workspace(object_coordinate, obstacle, padding):
+def outside_workspace(node, obstacle, padding):
     return_bool = False
     x1 = obstacle[0][0] + padding
     x2= obstacle[1][0] - padding
     y1 = obstacle[0][1] + padding
     y2 = obstacle[1][1] - padding
-    xobj = object_coordinate[0]
-    yobj = object_coordinate[1]
+    xobj = node[0]
+    yobj = node[1]
     if ((xobj <= x1) or (xobj >= x2) or (yobj <= y1) or (yobj >= y2)):
         return_bool = True    
     return return_bool
 
 # Checks if node is ouside the map or inside an obstacle
-def in_obstacle(object_coordinate, obstacles, padding):
+def in_obstacle(node, obstacles, padding):
     return_bool = False
     for obstacle in obstacles:
         if len(obstacle) == 2 and obstacle == ((0,0),(1200,500)):
-            if outside_workspace(object_coordinate, obstacle, padding):
+            if outside_workspace(node, obstacle, padding):
                     return_bool = True
         elif len(obstacle) == 2 and obstacle != ((0,0),(1200,500)):
-            if in_rectangle(object_coordinate, obstacle, 5):
+            if in_rectangle(node, obstacle, 5):
                 return_bool = True
         elif len(obstacle) == 6:
-            if in_hexagon(object_coordinate, 5):
+            if in_hexagon(node, 5):
                 return_bool = True
     return return_bool
 
@@ -154,11 +155,11 @@ def get_hexagon_coordinates(center_coordinate, radius, angle, padding):
 
 # Draws start node and end node
 def draw_nodes(canvas, start_node, goal_node):
-    cv2.rectangle(canvas, (start_node[0] - 2, 500 - start_node[1] - 2), (start_node[0] + 3, 500 - start_node[1] + 3), color=(0, 250, 0), thickness=cv2.FILLED)
-    cv2.rectangle(canvas, (goal_node[0] - 2, 500 - goal_node[1] - 2), (goal_node[0] + 3, 500 - goal_node[1] + 3), color=(0, 0, 255), thickness=cv2.FILLED)
+    cv2.rectangle(canvas, (start_node[0] - 4, 500 - start_node[1] - 4), (start_node[0] + 6, 500 - start_node[1] + 6), color=(0, 250, 0), thickness=cv2.FILLED)
+    cv2.rectangle(canvas, (goal_node[0] - 4, 500 - goal_node[1] - 4), (goal_node[0] + 6, 500 - goal_node[1] + 6), color=(0, 0, 255), thickness=cv2.FILLED)
 
 # Populates the canvas with the obstacles
-def draw_obstacles(canvas, obstacles):
+def draw_obstacles(canvas, obstacles, video_output):
     for obstacle in obstacles:       
         if len(obstacle) == 2 and obstacle != ((0,0),(1200,500)):
             start_x = obstacle[0][0]
@@ -173,11 +174,12 @@ def draw_obstacles(canvas, obstacles):
             polygon = polygon.reshape(-1, 1, 2)
             cv2.fillPoly(canvas, [polygon], color=(0, 0, 0))
     cv2.imshow('Dijkstra', canvas)
+    video_output.write(canvas)
     cv2.waitKey(2000)
     return
 
 # Populates and updates the canvas with explored nodes
-def draw_explored(canvas, points, start_node, goal_node):
+def draw_explored(canvas, points, video_output):
     count = 0
     for point in points.keys():
         cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(200, 0, 0), thickness=-1)
@@ -185,11 +187,12 @@ def draw_explored(canvas, points, start_node, goal_node):
         if count % 700 == 0:
             count = 0
             cv2.imshow('Dijkstra', canvas)
-            cv2.waitKey(int(1000 / 60))    
+            cv2.waitKey(int(1000 / 60)) 
+            video_output.write(canvas)   
     return
 
 # Populates and updates the canvas with path nodes
-def draw_path(canvas, path):
+def draw_path(canvas, path, video_output):
     count = 0
     for point in path:
         cv2.rectangle(canvas, (point[0], 500-point[1]), (point[0] + 1, 500-point[1] + 1), color=(0, 0, 250), thickness=2)
@@ -197,19 +200,35 @@ def draw_path(canvas, path):
         if count % 5 == 0:
             count = 0
             cv2.imshow('Dijkstra', canvas)
+            video_output.write(canvas)
             cv2.waitKey(int(1000 / 60))  
     return
 
+# Adds seconds at end of video
+def add_blank_frames(canvas, video_output, fps, seconds):
+    blank_frames = fps * seconds
+    for _ in range(blank_frames):
+        video_output.write(canvas)
+    return
+
 # Calls the functions for populating the canvas
-def draw_animation(obstacles, explored, path, start_node, goal_node):
+def record_animation(obstacles, explored, path, start_node, goal_node):
+    # Initialize VideoWriter
+    v_writer = cv2.VideoWriter_fourcc(*'mp4v')
+    fps = 60
+    video_output = cv2.VideoWriter('dijkstra_output.mp4', v_writer, fps, (1200, 500))
+
     canvas = np.ones((500, 1200, 3), dtype=np.uint8) * 255  # White canvas
     
     draw_nodes(canvas, start_node, goal_node)
-    draw_obstacles(canvas, obstacles)
-    draw_explored(canvas, explored, start_node, goal_node)
+    draw_obstacles(canvas, obstacles, video_output)
+    add_blank_frames(canvas, video_output, fps, 2)    
+    draw_explored(canvas, explored, video_output)
     draw_nodes(canvas, start_node, goal_node)
-    draw_path(canvas,path)
+    draw_path(canvas,path, video_output)
     cv2.waitKey(3000)
+    add_blank_frames(canvas, video_output, fps, 2)
+    video_output.release()
     return
 
 # Creates a list of the obstacles in the workspace
@@ -252,7 +271,6 @@ def dijkstra_algorithm(start_node, goal_node, obstacles):
         parent_dict[node] = parent
 
         if node == goal_node:
-            print("Path Found")
             return parent_dict
 
         # Get neighboring nodes
@@ -286,10 +304,13 @@ def find_path(visited_dict, start, goal):
         path.insert(0, current_node)
     return path
 
+
+#### Main ###
 # Get obstacles
 obstacles = obstacle_space()
-padding = 0
+padding = 5
 
+# Get and verify input coordinates
 xs = int(input('Enter x coordinate value for start coordinate: '))
 ys = int(input('Enter y coordinate value for start coordinate: '))
 start_node = tuple((xs, ys))
@@ -299,6 +320,7 @@ while in_obstacle(start_node, obstacles, padding):
     ys = int(input('Enter y coordinate value for start location: '))    
     start_node = tuple((xs, ys))
 
+# Get and verify input coordinates
 xg = int(input('Enter x coordinate value for goal coordinate: '))
 yg = int(input('Enter y coordinate value for goal coordinate: '))
 goal_node = tuple((xg,yg))
@@ -311,14 +333,14 @@ while in_obstacle(goal_node, obstacles, padding):
 # Start timer
 ti = time.time()
 
-print('Exploring nodes')
+print('Exploring nodes...')
 explored_dict = dijkstra_algorithm(start_node, goal_node, obstacles)
 
-print('Generating path')
+print('Generating path...')
 path = find_path(explored_dict, start_node, goal_node)
 
 # Get time taken to find path
 tf = time.time()
 print('Path found in: ', tf-ti)
 
-draw_animation(obstacles, explored_dict, path, start_node, goal_node)
+record_animation(obstacles, explored_dict, path, start_node, goal_node)
